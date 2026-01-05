@@ -1,124 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>匿名礼物抽签</title>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+    <style>
+        body { font-family: 'PingFang SC', sans-serif; background: #f4f4f7; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .card { background: white; padding: 2rem; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; width: 90%; max-width: 400px; }
+        input { padding: 10px; width: 80%; border: 1px solid #ddd; border-radius: 5px; margin-bottom: 1rem; font-size: 1rem; }
+        button { background: #e63946; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 1rem; }
+        .gift-box { font-size: 80px; cursor: pointer; transition: transform 0.3s; margin: 20px 0; display: none; }
+        .gift-box.shake { animation: shake 0.5s infinite; }
+        @keyframes shake { 0% { transform: rotate(0); } 25% { transform: rotate(5deg); } 50% { transform: rotate(0); } 75% { transform: rotate(-5deg); } 100% { transform: rotate(0); } }
+        #result { font-size: 1.5rem; font-weight: bold; color: #1d3557; margin-top: 20px; display: none; }
+    </style>
+</head>
+<body>
 
-import React, { useState, useEffect } from 'react';
-import { SharedEvent, AppView } from './types';
-import { decodeEvent } from './utils/crypto';
-import Snowfall from './components/Snowfall';
-import SetupWizard from './components/SetupWizard';
-import OrganizerDashboard from './components/OrganizerDashboard';
-import ParticipantDraw from './components/ParticipantDraw';
-import { Gift, LogOut } from 'lucide-react';
-
-const STORAGE_KEY = 'secret_santa_v5';
-
-const App: React.FC = () => {
-  const [view, setView] = useState<AppView>('SETUP');
-  const [eventData, setEventData] = useState<SharedEvent | null>(null);
-
-  const loadEvent = (hash: string) => {
-    const decoded = decodeEvent(hash);
-    if (decoded && decoded.n) {
-      setEventData(decoded);
-      setView('PARTICIPANT_ENTRY');
-      // 使用 sessionStorage 存储当前参与的活动，防止页面刷新丢失
-      sessionStorage.setItem('current_event', JSON.stringify(decoded));
-      return true;
-    }
-    return false;
-  };
-
-  useEffect(() => {
-    const handleRoute = () => {
-      const hash = window.location.hash;
-      
-      // 1. 优先检查 URL Hash 中是否有活动数据
-      if (hash.includes('event=')) {
-        const hashContent = hash.split('event=')[1];
-        if (loadEvent(hashContent)) return;
-      }
-
-      // 2. 检查会话缓存（参与者模式）
-      const sessionSaved = sessionStorage.getItem('current_event');
-      if (sessionSaved) {
-        setEventData(JSON.parse(sessionSaved));
-        setView('PARTICIPANT_ENTRY');
-        return;
-      }
-
-      // 3. 检查本地存储（主办方分享模式）
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        try {
-          setEventData(JSON.parse(saved));
-          setView('ORGANIZER_SHARE');
-        } catch (e) {
-          localStorage.removeItem(STORAGE_KEY);
-          setView('SETUP');
-        }
-      } else {
-        setView('SETUP');
-      }
-    };
-
-    handleRoute();
-    window.addEventListener('hashchange', handleRoute);
-    return () => window.removeEventListener('hashchange', handleRoute);
-  }, []);
-
-  const handleSetupComplete = (setupData: any) => {
-    const sharedData: SharedEvent = {
-      e: setupData.eventName,
-      n: setupData.participants.map((p: any) => p.name),
-      s: Math.floor(Math.random() * 999999)
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(sharedData));
-    setEventData(sharedData);
-    setView('ORGANIZER_SHARE');
-    // 清除 URL hash 避免冲突
-    window.location.hash = '';
-  };
-
-  const clearAndReset = () => {
-    if (window.confirm("确定要退出当前活动吗？")) {
-      localStorage.removeItem(STORAGE_KEY);
-      sessionStorage.removeItem('current_event');
-      window.location.hash = '';
-      window.location.reload();
-    }
-  };
-
-  return (
-    <div className="min-h-screen relative overflow-x-hidden bg-[#fafafa] pb-10">
-      <Snowfall />
-      <nav className="p-6 flex justify-between items-center max-w-6xl mx-auto relative z-10">
-        <div className="flex items-center gap-2 cursor-pointer" onClick={() => { if(view !== 'PARTICIPANT_ENTRY') window.location.reload(); }}>
-          <div className="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center text-white shadow-lg">
-            <Gift size={24} />
-          </div>
-          <span className="text-2xl font-christmas text-slate-800 tracking-tight">匿名抽签助手</span>
-        </div>
-        {view !== 'SETUP' && (
-          <button onClick={clearAndReset} className="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-red-600 transition-colors bg-white px-4 py-2 rounded-full shadow-sm border border-slate-100">
-            <LogOut size={14} /> 退出
-          </button>
-        )}
-      </nav>
-
-      <main className="relative z-10 px-4">
-        {view === 'SETUP' && (
-          <div className="max-w-3xl mx-auto mt-4">
-            <SetupWizard onComplete={handleSetupComplete} />
-            <div className="mt-12 text-center text-slate-300 text-sm">
-              <p>所有的抽签逻辑和名单数据均在您的浏览器本地加密处理</p>
-              <p>不经过任何服务器，100% 保护隐私</p>
-            </div>
-          </div>
-        )}
-        
-        {view === 'ORGANIZER_SHARE' && eventData && <OrganizerDashboard event={eventData} onReset={() => setView('SETUP')} />}
-        {view === 'PARTICIPANT_ENTRY' && eventData && <ParticipantDraw event={eventData} />}
-      </main>
+<div class="card" id="app">
+    <h2>🎁 礼物抽签</h2>
+    <div id="login-section">
+        <p>请输入你的名字开始抽签</p>
+        <input type="text" id="userName" placeholder="你的名字">
+        <br>
+        <button onclick="startDraw()">进入</button>
     </div>
-  );
-};
 
-export default App;
+    <div id="draw-section" style="display:none;">
+        <p>点击礼盒抽取你的送礼对象</p>
+        <div id="gift" class="gift-box" onclick="revealResult()">🎁</div>
+        <div id="result"></div>
+    </div>
+</div>
+
+<script>
+    // --- 主办方在此配置名单 ---
+    const participants = ["张三", "李四", "王五", "赵六", "小明", "小红"];
+    
+    // 核心算法：生成不包含自己的随机映射（生成后手动固定，或通过简单算法生成）
+    // 为了简单起见，这里演示一个基于名单顺序偏移的逻辑
+    function getTarget(name) {
+        const index = participants.indexOf(name);
+        if (index === -1) return null;
+        // 简单的偏移算法：每个人抽取后一个，最后一个抽取第一个。
+        // 这样保证不重复、不抽到自己。
+        const targetIndex = (index + 1) % participants.length;
+        return participants[targetIndex];
+    }
+
+    function startDraw() {
+        const name = document.getElementById('userName').value.trim();
+        if (participants.includes(name)) {
+            document.getElementById('login-section').style.display = 'none';
+            document.getElementById('draw-section').style.display = 'block';
+            document.getElementById('gift').style.display = 'block';
+        } else {
+            alert("名单里没有你的名字哦，请检查输入！");
+        }
+    }
+
+    function revealResult() {
+        const name = document.getElementById('userName').value.trim();
+        const target = getTarget(name);
+        const gift = document.getElementById('gift');
+        
+        gift.classList.add('shake');
+        
+        setTimeout(() => {
+            gift.style.display = 'none';
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `你抽到了：<br><span style="color:red; font-size:2rem;">${target}</span>`;
+            resultDiv.style.display = 'block';
+            confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+        }, 1500);
+    }
+</script>
+</body>
+</html>
