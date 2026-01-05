@@ -149,7 +149,7 @@
 
         // 【新增】上报进度
         try {
-          const DrawStatus = AV.Object.extend('drawstatus'); // ⚠️ 必须与后台一致
+          const DrawStatus = AV.Object.extend('DrawStatus'); // ⚠️ 必须与后台一致
           const status = new DrawStatus();
           status.set('userName', match);
           status.set('event', CONFIG.eventName);
