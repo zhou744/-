@@ -153,10 +153,13 @@
           const status = new DrawStatus();
           status.set('userName', match);
           status.set('event', CONFIG.eventName);
-          status.save(); 
-        } catch (e) {
-          console.error("记录失败", e);
-        }
+          status.save().then((obj) => {
+          console.log("上报成功！ID:", obj.id);
+        }).catch((err) => {
+          console.error("上报失败，错误代码:", err.code, "错误信息:", err.message);
+          // 如果这里报错 403，说明是 ACL 权限问题
+          // 如果报错 401，说明 AppID/Key 填错了
+        });
 
         let count = 0;
         timerRef.current = setInterval(() => {
