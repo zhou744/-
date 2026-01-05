@@ -4,79 +4,63 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>匿名抽签助手 - 参与者端</title>
-  <!-- 引入 Tailwind CSS 样式 -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- 引入 Google 字体 -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Mountains+of+Christmas:wght@700&display=swap" rel="stylesheet">
-  <!-- 引入 Babel 用于在浏览器中解析 JSX -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.12.0/dist/av-min.js"></script>
+  
   <style>
-    body {
-      font-family: 'Inter', "Microsoft YaHei", sans-serif;
-      background-color: #f8fafc;
-    }
-    .font-christmas {
-      font-family: 'Mountains of Christmas', cursive;
-    }
+    body { font-family: 'Inter', "Microsoft YaHei", sans-serif; background-color: #f8fafc; }
+    .font-christmas { font-family: 'Mountains of Christmas', cursive; }
     @keyframes snowfall {
       0% { transform: translateY(-10vh) rotate(0deg); }
       100% { transform: translateY(100vh) rotate(360deg); }
     }
-    .snowflake {
-      position: fixed;
-      top: -10vh;
-      color: white;
-      font-size: 1.5rem;
-      user-select: none;
-      z-index: 0;
-      pointer-events: none;
-      opacity: 0.6;
-    }
-    .animate-spin {
-      animation: spin 1s linear infinite;
-    }
-    @keyframes spin {
-      from { transform: rotate(0deg); }
-      to { transform: rotate(360deg); }
-    }
+    .snowflake { position: fixed; top: -10vh; color: white; font-size: 1.5rem; user-select: none; z-index: 0; pointer-events: none; opacity: 0.6; }
+    .animate-spin { animation: spin 1s linear infinite; }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
   <div id="root"></div>
 
-  <!-- 定义 Import Map 确保 ESM 模块正确加载 -->
   <script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@18.2.0",
-    "react-dom": "https://esm.sh/react-dom@18.2.0",
-    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
-    "lucide-react": "https://esm.sh/lucide-react@0.263.1",
-    "canvas-confetti": "https://esm.sh/canvas-confetti@1.6.0",
-    "react/": "https://esm.sh/react@^19.2.3/"
+  {
+    "imports": {
+      "react": "https://esm.sh/react@18.2.0",
+      "react-dom": "https://esm.sh/react-dom@18.2.0",
+      "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+      "lucide-react": "https://esm.sh/lucide-react@0.263.1",
+      "canvas-confetti": "https://esm.sh/canvas-confetti@1.6.0",
+      "react/": "https://esm.sh/react@^19.2.3/"
+    }
   }
-}
-</script>
+  </script>
 
-  <!-- 使用 Babel 编译的模块化脚本 -->
   <script type="text/babel" data-type="module">
     import React, { useState, useEffect, useMemo, useRef } from 'react';
     import { createRoot } from 'react-dom/client';
     import { Gift, Eye, Loader2, PartyPopper, AlertCircle } from 'lucide-react';
     import confetti from 'canvas-confetti';
-<script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.12.0/dist/av-min.js"></script>
+
     // ==========================================
-    // 后台配置区域：请在这里手动修改活动信息和人员名单
+    // 后台配置区域
     // ==========================================
     const CONFIG = {
-      eventName: "2026赵家团年度礼物交换", // 活动名称
+      eventName: "2026赵家团年度礼物交换",
       participants: [
         "周正", "徐粼澄", "孔嘉", "张琴", "全薇", "徐安琳", "黄偲聪", "刘莹", "陈亚倩", "闫晓苏", "陈爱龙", "李亚云"
-      ], // 参与人员名单（修改后保存即可生效）
-      seed: 123456 // 随机种子（修改此数字可重新打乱所有配对关系）
+      ],
+      seed: 123456
     };
 
-    // --- 核心算法：确保没人抽到自己，且每人只被抽到一次 ---
+    // 【修正 2】LeanCloud 初始化放在 App 外部
+    AV.init({
+      appId: "jmYHrSFyQzSriZk4uvRAzDzX-MdYXbMMI",
+      appKey: "obcHxYOXoOhjR0DNiwf71StT",
+      serverURL: "https://jmyhrsfy.api.lncldglobal.com" 
+    });
+
     const createRandom = (seed) => {
       return () => {
         let t = (seed += 0x6D2B79F5);
@@ -101,7 +85,6 @@
       return pairings;
     };
 
-    // --- 背景组件 ---
     const Snowfall = () => {
       const [flakes, setFlakes] = useState([]);
       useEffect(() => {
@@ -127,7 +110,6 @@
       );
     };
 
-    // --- 主应用组件 ---
     const App = () => {
       const [userName, setUserName] = useState('');
       const [isDrawing, setIsDrawing] = useState(false);
@@ -135,18 +117,22 @@
       const [error, setError] = useState(null);
       const [displayIdx, setDisplayIdx] = useState(0);
       const timerRef = useRef(null);
-     
-          // --- LeanCloud 初始化 ---
-// 请替换为你自己的 App ID 和 Key
-AV.init({
-  appId: "jmYHrSFyQzSriZk4uvRAzDzX-MdYXbMMI",
-  appKey: "obcHxYOXoOhjR0DNiwf71StT",
-  serverURL: "https://jmyhrsfy.api.lncldglobal.com" 
-});
-      // 预先计算配对结果
-      const pairingsMap = useMemo(() => 
-        generatePairings(CONFIG.participants, CONFIG.seed), 
-      []);
+
+      const pairingsMap = useMemo(() => generatePairings(CONFIG.participants, CONFIG.seed), []);
+
+      // 【新增】管理员查看进度功能：网址后缀加上 ?admin=show 即可触发
+      useEffect(() => {
+        if (window.location.search.includes('admin=show')) {
+          const query = new AV.Query('DrawStatus');
+          query.equalTo('event', CONFIG.eventName);
+          query.limit(1000);
+          query.find().then((results) => {
+            const names = results.map(r => r.get('userName'));
+            const uniqueNames = [...new Set(names)];
+            alert(`【抽签进度】\n已完成：${uniqueNames.length} / ${CONFIG.participants.length}\n名单：${uniqueNames.join(', ')}`);
+          }).catch(err => alert("读取进度失败，请检查 LeanCloud 设置"));
+        }
+      }, []);
 
       const startDraw = () => {
         const trimmed = userName.trim();
@@ -160,18 +146,18 @@ AV.init({
         setError(null);
         setIsDrawing(true);
         setTargetName(pairingsMap[match]);
-        
-          // === 新增：上报进度到 LeanCloud ===
+
+        // 【新增】上报进度
         try {
           const DrawStatus = AV.Object.extend('DrawStatus');
           const status = new DrawStatus();
-          status.set('userName', match); // 记录是谁抽了
-          status.set('event', CONFIG.eventName); // 记录是哪个活动
+          status.set('userName', match);
+          status.set('event', CONFIG.eventName);
           status.save(); 
         } catch (e) {
-          console.error("记录失败，但不影响用户抽签", e);
+          console.error("记录失败", e);
         }
-        // ================================
+
         let count = 0;
         timerRef.current = setInterval(() => {
           setDisplayIdx(Math.floor(Math.random() * CONFIG.participants.length));
@@ -187,7 +173,6 @@ AV.init({
       return (
         <div className="min-h-screen relative overflow-x-hidden pb-20">
           <Snowfall />
-          
           <nav className="p-8 flex justify-center items-center relative z-10">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-red-600 rounded-2xl flex items-center justify-center text-white shadow-xl">
@@ -196,14 +181,12 @@ AV.init({
               <span className="text-3xl font-christmas text-slate-800 tracking-tight">匿名抽签助手</span>
             </div>
           </nav>
-
           <main className="relative z-10 max-w-md mx-auto p-4">
             <div className="bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border border-red-50">
               <div className="bg-red-600 p-10 text-center text-white relative">
                 <h1 className="text-4xl font-christmas mb-2">{CONFIG.eventName}</h1>
                 <p className="text-red-100 opacity-90 text-sm">请输入姓名揭晓您的抽签对象</p>
               </div>
-              
               <div className="p-10">
                 {!targetName || isDrawing ? (
                   <div className="space-y-6">
@@ -214,14 +197,12 @@ AV.init({
                       placeholder="您的姓名" 
                       className="w-full px-6 py-5 rounded-2xl bg-slate-50 border border-slate-200 text-center text-2xl font-bold outline-none focus:ring-4 focus:ring-red-100 transition-all placeholder:text-slate-300"
                     />
-                    
                     {error && (
                       <div className="flex items-center gap-2 text-red-500 text-sm justify-center bg-red-50 p-4 rounded-xl">
                         <AlertCircle size={18} />
                         {error}
                       </div>
                     )}
-
                     {isDrawing ? (
                       <div className="text-center py-6">
                         <div className="text-5xl font-bold text-slate-200 animate-pulse font-christmas mb-4">
@@ -246,7 +227,6 @@ AV.init({
                     <div className="w-24 h-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto ring-8 ring-green-50">
                       <PartyPopper size={48} />
                     </div>
-                    
                     <div>
                       <p className="text-slate-500 text-lg mb-2">
                         <span className="font-bold text-slate-800">{userName}</span>，您抽到的是：
@@ -255,11 +235,9 @@ AV.init({
                         {targetName}
                       </div>
                     </div>
-
                     <div className="bg-amber-50 p-5 rounded-2xl border border-amber-100 text-amber-800 text-sm leading-relaxed">
                       🤫 这是一个秘密！请不要告诉其他人。
                     </div>
-
                     <button 
                       onClick={() => { setTargetName(null); setUserName(''); }} 
                       className="text-slate-400 text-sm font-semibold hover:text-red-600 transition-colors"
@@ -270,7 +248,6 @@ AV.init({
                 )}
               </div>
             </div>
-            
             <div className="mt-10 text-center text-slate-300 text-xs space-y-1">
               <p>隐私保护：所有配对逻辑均在本地执行</p>
               <p>管理员可在源代码 CONFIG 部分修改名单</p>
