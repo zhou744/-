@@ -64,19 +64,14 @@
     import { createRoot } from 'react-dom/client';
     import { Gift, Eye, Loader2, PartyPopper, AlertCircle } from 'lucide-react';
     import confetti from 'canvas-confetti';
-
+<script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.12.0/dist/av-min.js"></script>
     // ==========================================
     // 后台配置区域：请在这里手动修改活动信息和人员名单
     // ==========================================
     const CONFIG = {
-      eventName: "2024 年度礼物交换", // 活动名称
+      eventName: "2026赵家团年度礼物交换", // 活动名称
       participants: [
-        "张三",
-        "李四",
-        "王五",
-        "赵六",
-        "小明",
-        "小红"
+        "周正", "徐粼澄", "孔嘉", "张琴", "全薇", "徐安琳", "黄偲聪", "刘莹", "陈亚倩", "闫晓苏", "陈爱龙", "李亚云"
       ], // 参与人员名单（修改后保存即可生效）
       seed: 123456 // 随机种子（修改此数字可重新打乱所有配对关系）
     };
@@ -140,7 +135,14 @@
       const [error, setError] = useState(null);
       const [displayIdx, setDisplayIdx] = useState(0);
       const timerRef = useRef(null);
-
+     
+          // --- LeanCloud 初始化 ---
+// 请替换为你自己的 App ID 和 Key
+AV.init({
+  appId: "jmYHrSFyQzSriZk4uvRAzDzX-MdYXbMMI",
+  appKey: "obcHxYOXoOhjR0DNiwf71StT",
+  serverURL: "https://jmyhrsfy.api.lncldglobal.com" 
+});
       // 预先计算配对结果
       const pairingsMap = useMemo(() => 
         generatePairings(CONFIG.participants, CONFIG.seed), 
@@ -158,7 +160,18 @@
         setError(null);
         setIsDrawing(true);
         setTargetName(pairingsMap[match]);
-
+        
+          // === 新增：上报进度到 LeanCloud ===
+        try {
+          const DrawStatus = AV.Object.extend('DrawStatus');
+          const status = new DrawStatus();
+          status.set('userName', match); // 记录是谁抽了
+          status.set('event', CONFIG.eventName); // 记录是哪个活动
+          status.save(); 
+        } catch (e) {
+          console.error("记录失败，但不影响用户抽签", e);
+        }
+        // ================================
         let count = 0;
         timerRef.current = setInterval(() => {
           setDisplayIdx(Math.floor(Math.random() * CONFIG.participants.length));
