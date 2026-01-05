@@ -1,1 +1,124 @@
 # -
+import React, { useState, useEffect } from 'react';
+import { SharedEvent, AppView } from './types';
+import { decodeEvent } from './utils/crypto';
+import Snowfall from './components/Snowfall';
+import SetupWizard from './components/SetupWizard';
+import OrganizerDashboard from './components/OrganizerDashboard';
+import ParticipantDraw from './components/ParticipantDraw';
+import { Gift, LogOut } from 'lucide-react';
+
+const STORAGE_KEY = 'secret_santa_v5';
+
+const App: React.FC = () => {
+  const [view, setView] = useState<AppView>('SETUP');
+  const [eventData, setEventData] = useState<SharedEvent | null>(null);
+
+  const loadEvent = (hash: string) => {
+    const decoded = decodeEvent(hash);
+    if (decoded && decoded.n) {
+      setEventData(decoded);
+      setView('PARTICIPANT_ENTRY');
+      // 使用 sessionStorage 存储当前参与的活动，防止页面刷新丢失
+      sessionStorage.setItem('current_event', JSON.stringify(decoded));
+      return true;
+    }
+    return false;
+  };
+
+  useEffect(() => {
+    const handleRoute = () => {
+      const hash = window.location.hash;
+      
+      // 1. 优先检查 URL Hash 中是否有活动数据
+      if (hash.includes('event=')) {
+        const hashContent = hash.split('event=')[1];
+        if (loadEvent(hashContent)) return;
+      }
+
+      // 2. 检查会话缓存（参与者模式）
+      const sessionSaved = sessionStorage.getItem('current_event');
+      if (sessionSaved) {
+        setEventData(JSON.parse(sessionSaved));
+        setView('PARTICIPANT_ENTRY');
+        return;
+      }
+
+      // 3. 检查本地存储（主办方分享模式）
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        try {
+          setEventData(JSON.parse(saved));
+          setView('ORGANIZER_SHARE');
+        } catch (e) {
+          localStorage.removeItem(STORAGE_KEY);
+          setView('SETUP');
+        }
+      } else {
+        setView('SETUP');
+      }
+    };
+
+    handleRoute();
+    window.addEventListener('hashchange', handleRoute);
+    return () => window.removeEventListener('hashchange', handleRoute);
+  }, []);
+
+  const handleSetupComplete = (setupData: any) => {
+    const sharedData: SharedEvent = {
+      e: setupData.eventName,
+      n: setupData.participants.map((p: any) => p.name),
+      s: Math.floor(Math.random() * 999999)
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(sharedData));
+    setEventData(sharedData);
+    setView('ORGANIZER_SHARE');
+    // 清除 URL hash 避免冲突
+    window.location.hash = '';
+  };
+
+  const clearAndReset = () => {
+    if (window.confirm("确定要退出当前活动吗？")) {
+      localStorage.removeItem(STORAGE_KEY);
+      sessionStorage.removeItem('current_event');
+      window.location.hash = '';
+      window.location.reload();
+    }
+  };
+
+  return (
+    <div className="min-h-screen relative overflow-x-hidden bg-[#fafafa] pb-10">
+      <Snowfall />
+      <nav className="p-6 flex justify-between items-center max-w-6xl mx-auto relative z-10">
+        <div className="flex items-center gap-2 cursor-pointer" onClick={() => { if(view !== 'PARTICIPANT_ENTRY') window.location.reload(); }}>
+          <div className="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center text-white shadow-lg">
+            <Gift size={24} />
+          </div>
+          <span className="text-2xl font-christmas text-slate-800 tracking-tight">匿名抽签助手</span>
+        </div>
+        {view !== 'SETUP' && (
+          <button onClick={clearAndReset} className="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-red-600 transition-colors bg-white px-4 py-2 rounded-full shadow-sm border border-slate-100">
+            <LogOut size={14} /> 退出
+          </button>
+        )}
+      </nav>
+
+      <main className="relative z-10 px-4">
+        {view === 'SETUP' && (
+          <div className="max-w-3xl mx-auto mt-4">
+            <SetupWizard onComplete={handleSetupComplete} />
+            <div className="mt-12 text-center text-slate-300 text-sm">
+              <p>所有的抽签逻辑和名单数据均在您的浏览器本地加密处理</p>
+              <p>不经过任何服务器，100% 保护隐私</p>
+            </div>
+          </div>
+        )}
+        
+        {view === 'ORGANIZER_SHARE' && eventData && <OrganizerDashboard event={eventData} onReset={() => setView('SETUP')} />}
+        {view === 'PARTICIPANT_ENTRY' && eventData && <ParticipantDraw event={eventData} />}
+      </main>
+    </div>
+  );
+};
+
+export default App;
